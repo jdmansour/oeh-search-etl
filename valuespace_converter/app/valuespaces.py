@@ -1,4 +1,7 @@
+import json
+import os
 import string
+import time
 
 import requests
 
@@ -20,8 +23,8 @@ class Valuespaces:
             vocab_list.append({'key': v, 'url': 'http://w3id.org/openeduhub/vocabs/' + v + '/index.json'})
         for vocab_name in vocab_list:
             # try:
-            r = requests.get(vocab_name['url'])
-            self.data[vocab_name['key']] = self.flatten(r.json()['hasTopConcept'])
+            voc = getVocabulary(vocab_name['url'])
+            self.data[vocab_name['key']] = self.flatten(voc['hasTopConcept'])
             # except:
             #    self.valuespaces[v] = {}
 
@@ -89,3 +92,25 @@ class Valuespaces:
 
         names = list(set(map(lambda x: x.strip(), names)))
         return names
+
+
+def getVocabulary(url: string):
+    # get the vocabulary and cache it under cache/valuespaces/{key}.json
+    key = url.split('/')[-2]
+    cache_root = 'cache/valuespaces'
+    cache_file = cache_root + '/' + key + '.json'
+    if os.path.exists(cache_file):
+        # timespan of one day
+        timespan = 60 * 60 * 24
+        # if the file is not older, return the cached version
+        if time.time() < os.path.getmtime(cache_file) + timespan:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+
+    # fetch the vocabulary and store in cache
+    r = requests.get(url, timeout=5)
+    result = r.json()
+    os.makedirs(cache_root, exist_ok=True)
+    with open(cache_file, 'w', encoding='utf-8') as f:
+        json.dump(result, f)
+        return result
